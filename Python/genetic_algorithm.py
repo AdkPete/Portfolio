@@ -52,7 +52,16 @@ def opt_w_random_samples(f , bounds , N):
     print ("Best f(x):" , f_vals[min_i])
     print ("Best x :" , result[min_i])
 
+def genetic_algorithm(f , bounds , popsize = 10):
+    '''
+    This is the main function that runs the actual
+    genetic_algorithm
+    '''
+    
+    return 0
+    
+    
 if __name__ == "__main__":
     opt_w_random_samples(test_1 , [(-10,10)] , 1000)
     
-    
+    genetic_algorithm(test_1 , [(-10,10)] , popsize = 10)
