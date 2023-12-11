@@ -11,6 +11,15 @@ def test_1(x):
 def test_2(x):
     return x[0] ** 2 + x[1] ** 2
 
+def rosenbrock(x):
+    '''
+    rosenbrock function for testing optimizers
+    '''
+    a = 1
+    b = 100
+    return (a - x[0]) ** 2 + b * (x[1]  - x[0] ** 2 ) ** 2
+    
+
 def uniform_random_sampler(N , bounds):
     '''
     Function to generate random samples.
@@ -53,7 +62,22 @@ def eval_pop(f , population):
         fitness.append(f(sltn))
     return np.array(fitness)
 
-def reproduce(f , bounds , population, fitness , N_new):
+def mutation(creature , bounds , mutation_rate = 0.5):
+    '''
+    Function designed to handle mutations in the population
+    each creature will have a probability of containing a mutation
+    governed by  mutation_rate
+    '''
+    
+    param_odds = mutation_rate / len(creature)
+    for i in range(len(creature)):
+        mutate = np.random.rand()
+        if mutate < param_odds:
+            creature[i] = np.random.uniform(bounds[i][0], bounds[i][1] , 1)[0]
+            
+    return creature
+
+def reproduce(f , bounds , population, fitness , N_new , mutation_rate):
     
     '''
     Function to take in the current population, and
@@ -92,7 +116,8 @@ def reproduce(f , bounds , population, fitness , N_new):
                 nparam = np.random.normal((p1 + p2) / 2.0 , abs(p2 - p1) , 1)[0]
 
             nx.append(nparam)
-            
+
+        nx = mutation(nx , bounds , mutation_rate)
         new_sltns.append(nx)
 
     new_sltns = np.array(new_sltns)
@@ -130,7 +155,7 @@ def opt_w_random_samples(f , bounds , N):
     print ("Best x :" , result[min_i])
     return result[min_i] , f_vals[min_i]
 
-def genetic_algorithm(f , bounds , popsize = 10 , Niter = 100, Gensize = 0.5):
+def genetic_algorithm(f , bounds , popsize = 10 , Niter = 100, Gensize = 0.5 , mutation_rate = 0.25):
     '''
     This is the main function that runs the actual
     genetic algorithm
@@ -148,7 +173,7 @@ def genetic_algorithm(f , bounds , popsize = 10 , Niter = 100, Gensize = 0.5):
     
     ##Iterate Niter times, generating new populations
     for i in range(Niter):
-        population , fitness = reproduce(f,bounds,population,fitness,new)
+        population , fitness = reproduce(f,bounds,population,fitness,new , mutation_rate)
     
     print ("Best f(x) :", fitness[0])
     print ("Best x:" , population[0])
@@ -156,9 +181,12 @@ def genetic_algorithm(f , bounds , popsize = 10 , Niter = 100, Gensize = 0.5):
     
     
 if __name__ == "__main__":
+    np.random.seed(150)
     x1 , f1 = opt_w_random_samples(test_1 , [(-10,10)] , 200000)
     x2 , f2 = opt_w_random_samples(test_2 , [(-10,10),(-10,10)] , 200000)
     
-    xg , fg = genetic_algorithm(test_2 , [(-10,10),(-10,10)] , popsize = 50 , Niter = 100)
+    xg , fg = genetic_algorithm(test_2 , [(-10,10),(-10,10)] , popsize = 50 , Niter = 100 , mutation_rate = 0)
     
-    print ("Genetic Algoritm fitness / random --> ", fg / f2)
+    
+    x2 , f2 = opt_w_random_samples(rosenbrock , [(-20,20),(-20,20)] , 2000)
+    xg , fg = genetic_algorithm(rosenbrock , [(-20,20),(-20,20)] , popsize = 100 , Niter = 10 , mutation_rate = 0)
