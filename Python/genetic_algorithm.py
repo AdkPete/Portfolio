@@ -77,6 +77,15 @@ def mutation(creature , bounds , mutation_rate = 0.5):
             
     return creature
 
+def softmax_function(x):
+    '''
+    Function to normalize an array such that it sums to one.
+    This uses a softmax function, to help aid with any floating point
+    round off issues
+    '''
+    x /= np.max(x) ##Here to avoid overflows in e^x
+    return np.exp(x) / np.sum(np.exp(x))
+
 def reproduce(f , bounds , population, fitness , N_new , mutation_rate):
     
     '''
@@ -101,7 +110,14 @@ def reproduce(f , bounds , population, fitness , N_new , mutation_rate):
     
     for i in range(N_new):
         nx = []
-        parents = np.random.choice(np.array(range(N_new)) , 2 , replace = False )
+        
+        ii = np.where(abs(fitness) < 1e-200)
+        fitness[ii] = 1e-200 ##Prevents any issues with 1 / small number = inf
+        
+        prob = softmax_function(1.0 / fitness[:N_new])
+        
+        parents = np.random.choice(np.array(range(N_new)) , 2 , replace = False ,  p = prob)
+        
         parent1 = population[parents[0]]
         parent2 = population[parents[1]]
        
@@ -182,11 +198,12 @@ def genetic_algorithm(f , bounds , popsize = 10 , Niter = 100, Gensize = 0.5 , m
     
 if __name__ == "__main__":
     np.random.seed(150)
-    x1 , f1 = opt_w_random_samples(test_1 , [(-10,10)] , 200000)
-    x2 , f2 = opt_w_random_samples(test_2 , [(-10,10),(-10,10)] , 200000)
     
-    xg , fg = genetic_algorithm(test_2 , [(-10,10),(-10,10)] , popsize = 50 , Niter = 100 , mutation_rate = 0)
+    ##Random search, with 10,000 function evals
+    print ("Random Search")
+    x2 , f2 = opt_w_random_samples(test_2 , [(-10,10),(-10,10)] , 10000)
     
+    print ("Genetic Algorithm")
+    ##Genetic algorithm, with popsize + popsize/2 * Niter evaluations
+    xg , fg = genetic_algorithm(test_2 , [(-10,10),(-10,10)] , popsize = 50 , Niter = 20 , mutation_rate = .5)  
     
-    x2 , f2 = opt_w_random_samples(rosenbrock , [(-20,20),(-20,20)] , 2000)
-    xg , fg = genetic_algorithm(rosenbrock , [(-20,20),(-20,20)] , popsize = 100 , Niter = 10 , mutation_rate = 0)
