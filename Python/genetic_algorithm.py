@@ -1,5 +1,5 @@
 import numpy as np
-
+import scipy.optimize as opt ##For comparison purposes
 
 def test_1(x):
     '''
@@ -19,6 +19,20 @@ def rosenbrock(x):
     b = 100
     return (a - x[0]) ** 2 + b * (x[1]  - x[0] ** 2 ) ** 2
     
+def ackley(x):
+    '''
+    ackley function for testing optimizers
+    this particular function has many local minima, causing issues for hillclimbers
+    '''
+    a = 20
+    b = 0.2
+    c = 2 * np.pi
+    d = len(x)
+    x - np.array(x)
+    T1 = -a * np.exp(-b * np.sqrt( ( 1. / d ) * np.sum(x ** 2) ) )
+    T2 = -np.exp( (1. / d) * np.sum(np.cos(c * x)))
+    return T1 + T2 + a + np.exp(1)
+
 
 def uniform_random_sampler(N , bounds):
     '''
@@ -197,7 +211,7 @@ def genetic_algorithm(f , bounds , popsize = 10 , Niter = 100, Gensize = 0.5 , m
     
     
 if __name__ == "__main__":
-    np.random.seed(150)
+    #np.random.seed(150)
     
     ##Random search, with 10,000 function evals
     print ("Random Search")
@@ -207,3 +221,13 @@ if __name__ == "__main__":
     ##Genetic algorithm, with popsize + popsize/2 * Niter evaluations
     xg , fg = genetic_algorithm(test_2 , [(-10,10),(-10,10)] , popsize = 50 , Niter = 20 , mutation_rate = .5)  
     
+    print ("Now we test on a harder function")
+    print ("True solution is at (0,0)")
+    
+    print ("Genetic Algorithm w/ <2000 Function evals")
+    xg , fg = genetic_algorithm(ackley , [(-30,30),(-30,30)] , popsize = 24 , Niter = 150 , mutation_rate = .1)
+    
+
+    res = opt.minimize(ackley , x0 = [-15,0])
+    print ("Scipy Hill Climber results")
+    print (res)
