@@ -17,11 +17,123 @@ containing the minimum required information for these sims. This will
 get output to a file that is more easily readable by other codes, and
 this will be the starting point for other methods (see fortran code).
 
+
+Link to data source : https://database.lichess.org/
+
+The test data included in the repository is from 2013 - January. This
+particular set was chosen for the small file size, and it is a
+reasonable starting point. For more accurate results, you could include
+a larger number of games by adding additional pgn files to the
+data directory.
+
 Written by Dr. Peter A. Craig (2025)
 '''
 
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 
+def parse_pgn(filename):
+    '''
+    Function to parse a pgn file and extract the useful information
+    for the simulation. This includes the player ratings, the result,
+    time controls, and the player colors.
+    
+    We'll do a bit of data filtering at this stage:
+    1. If a rating or time control is missing, skip.
+    
+    '''
+    
+    ## Set up dictionary to store results
 
+    data = {}
+    data["White"] = []
+    data["Black"] = []
+    data["Result"] = []
+    data["WhiteElo"] = []
+    data["BlackElo"] = []
+    data["Time Control"] = []
+    
+    f = open(filename, "r")
+    
+    ## Parse through the file, one game at a time.
+    for i in f.readlines():
+
+        if i.strip() == "":
+            continue
+        sl = i.split(" ")
+        
+        if len(sl) == 1:
+            continue
+        field = sl[1].replace('"',"").replace("]","").strip()
+        
+        if "[White " in i:
+            white = field
+
+        elif "[Black " in i:
+            black = field
+            
+        elif "[Result " in i:
+            result = field
+            
+        elif "[WhiteElo " in i:
+            try:
+                whiteelo = float(field)
+            except:
+                continue
+            
+        elif "[BlackElo " in i:
+            try:
+                blackelo = float(field)
+            except:
+                continue
+        elif "[TimeControl " in i:
+            tcontrol = field
+
+        elif i[0] == "1":
+            
+            if not (white is None or black is None or whiteelo is None
+                or blackelo is None or tcontrol is None or result is None):
+                
+                data["White"].append(white)
+                data["Black"].append(black)
+                data["WhiteElo"].append(whiteelo)
+                data["BlackElo"].append(blackelo)
+                data["Time Control"].append(tcontrol)
+                data["Result"].append(result)
+            
+            white = None
+            black = None
+            whiteelo = None
+            blackelo = None
+            tcontrol = None
+            result = None
+            
+    
+    ## Close file
+    f.close()
+    
+    ## Some basic checks to make sure that our data set makes sens
+
+    length = len(data["Black"])
+    
+    for key in data.keys():
+        if len(data[key]) != length:
+            print (len(data[key]) , length , key)
+            errmsg = "Input PGN file {} ".format(filename)
+            errmsg += "is missing some header fields"
+            raise ValueError(errmsg)
+        
+    return data
+
+for i in os.listdir("data/"):
+
+    if i[-4:] == ".pgn":
+        pgndata = parse_pgn("data/" + i)
+        break
+    
 print ("Hello, would you like to play a game?")
+
+plt.hist(pgndata["WhiteElo"] , bins = 200)
+
+plt.show()
