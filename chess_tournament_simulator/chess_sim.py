@@ -123,8 +123,49 @@ def parse_pgn(filename):
             errmsg = "Input PGN file {} ".format(filename)
             errmsg += "is missing some header fields"
             raise ValueError(errmsg)
-        
+    
+
     return data
+
+def fit_probabilities(pgndata):
+    '''
+    This function will fit a model for the probability of each result
+    for a game given the ratings of white and black
+    '''
+    
+    ##TODO : This configuration has poor memory properties. Update to
+    ## Avoid having multiple data arrays in memory with the same data
+    
+    welo = np.array(pgndata["WhiteElo"])
+    belo = np.array(pgndata["BlackElo"])
+    result = np.array(pgndata["Result"])
+    
+    ii = np.where( (welo != 1500) & (belo != 1500))
+    
+    rdiff = welo[ii] - belo[ii]
+    
+    bw = 50
+    diff_bins = np.arange(-1000 , 1000 , bw * 2)
+    scores = []
+    for bin in diff_bins:
+        
+        bin_ii = np.where( ( rdiff > bin - bw ) & (rdiff < bin + bw) )
+        
+        score = 0
+        
+        ## Add in wins for white first
+        resii = np.where(result[ii][bin_ii] == "1-0")
+        score += len(resii[0])
+        
+        ## Now we handle draws
+        resii = np.where(result[ii][bin_ii] == "1/2-1/2")
+        score += 0.5 * len(resii[0])
+        
+        score /= len(bin_ii[0])
+        scores.append(score)
+        
+    plt.scatter(diff_bins , scores)
+    plt.show()
 
 for i in os.listdir("data/"):
 
@@ -134,6 +175,4 @@ for i in os.listdir("data/"):
     
 print ("Hello, would you like to play a game?")
 
-plt.hist(pgndata["WhiteElo"] , bins = 200)
-
-plt.show()
+fit_probabilities(pgndata)
