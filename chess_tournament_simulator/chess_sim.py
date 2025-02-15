@@ -33,6 +33,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import sys
+import scipy.optimize as opt ##One day, replace with my own module
+
 
 def parse_pgn(filename):
     '''
@@ -152,17 +154,26 @@ def parse_pgn(filename):
     
     return data
 
-def pmodel(r1 , r2):
+def pmodel(r1 , r2 , k , x0 , draw_x0 , draw_sigma , draw_amp):
     
     '''
     simple model to predict the result of a given game. Estimates the 
-    probability for a win for white, draw, or a win for black.
+    probability for a win for white, draw, or a win for black. This
+    model uses a logistic function to estimate the win probability
+    for white, with a gaussian for the win probability for black.
+    These models are guesses based on the shape of the probability 
+    curves.
     
     Parameters
     __________
     r1 : rating for white
     r2 : rating for black
-    
+    k : growth rate (how steeply does the probability change)
+    x0 : Location of 0.5 win probability
+    draw_x0 : Location of max draw probability
+    draw_sigma : Width of draw probability
+    draw_amp : Amplitude of draw probability
+
     Returns
     _______
     pw : probability for white win
@@ -170,24 +181,29 @@ def pmodel(r1 , r2):
     
     '''
     
-    return 0.5 , 0.25
-def fit_probabilities(pgndata):
+    rdiff = r1 - r2
+    ## Win probability first
+    pw = 1 / (1 + np.exp(-k * (rdiff - x0)))
+    pd =  draw_amp / np.sqrt(2 * np.pi * draw_sigma ** 2)
+    pd *= np.exp(-1 * (rdiff - draw_x0) ** 2 / (2 * draw_sigma ** 2))
+
+    return pw , pd
+
+def setup_eval_function(pgndata , bw = 25):
+
     '''
-    This function will fit a model for the probability of each result
-    for a game given the ratings of white and black
+    This function will create a new function to evaluate our model,
+    for optimization purposes.
     '''
-    
-    ##TODO : This configuration has poor memory properties. Update to
-    ## Avoid having multiple data arrays in memory with the same data
-    
+
     welo = np.array(pgndata["WhiteElo"])
     belo = np.array(pgndata["BlackElo"])
     result = np.array(pgndata["Result"])
-    
+
+    rdiff = welo - belo
     ii = np.where( (welo != 1500) & (belo != 1500))
-    
-    rdiff = welo[ii] - belo[ii]
-    
+    rdiff = rdiff[ii]
+
     bw = 25
     diff_bins = np.arange(-1000 , 1000 , bw * 2)
     scores = []
@@ -206,6 +222,29 @@ def fit_probabilities(pgndata):
         scores.append(score)
         N.append(len(bin_ii[0]))
 
+
+    def f(x):
+        '''
+        Function to evaluate the model for the given data
+        '''
+        pw , pd = pmodel(diff_bins , 0 , x[0] , x[1] , x[2] , x[3] , x[4])
+
+        return np.sqrt( np.sum( (pw - win_rate) ** 2) + np.sum((pd - draw_rate) ** 2))
+
+    return f , diff_bins , scores , N , draw_rate , win_rate
+
+def fit_probabilities(pgndata):
+    '''
+    This function will fit a model for the probability of each result
+    for a game given the ratings of white and black
+    '''
+    
+    ##TODO : This configuration has poor memory properties. Update to
+    ## Avoid having multiple data arrays in memory with the same data
+    
+    f , diff_bins , scores , N , draw_rate , win_rate = setup_eval_function(pgndata)
+    
+
     ## Quick plot of the score vs. rating difference. It should be the case
     ## that with rating differences near 0, the score should be close to
     ## 0.5, and as the rating difference moves away from 0, the score should
@@ -213,6 +252,25 @@ def fit_probabilities(pgndata):
     ## is expected to be slightly offset from 0, because the player
     ## with the white pices has a small advantage.
     
+
+    x0 = [0.01 , 0 , 0 , 200 , 5.0]
+    
+    res = opt.minimize(f , x0 , method = "Nelder-Mead")
+    print (res)
+
+    ## Model Guess:
+    modelx = np.linspace(-1000 , 1000 , 2000)
+    model_pw = []
+    model_pd = []
+
+    for i in range(len(modelx)):
+        pw , pd = pmodel(modelx[i], 0, res.x[0], res.x[1], res.x[2], res.x[3], res.x[4])
+        model_pw.append(pw)
+        model_pd.append(pd)
+
+    model_pw = np.array(model_pw)
+    model_pd = np.array(model_pd)
+
     plt.scatter(diff_bins , scores)
     plt.errorbar(diff_bins , scores , yerr = 1 / np.sqrt(N) , ls = 'none')
     plt.show()
@@ -220,11 +278,19 @@ def fit_probabilities(pgndata):
     plt.scatter(diff_bins , draw_rate , label = "Draw Rate")
     plt.scatter(diff_bins , win_rate , color = "orange" , label = "White Wins")
     plt.scatter(diff_bins , 1 - np.array(win_rate) - np.array(draw_rate) , color = "red" , label = "Black Wins")
+    plt.plot(modelx, model_pw, color = "black", ls = "--",
+        label = "Model White Win")
+    plt.plot(modelx, model_pd, color = "green", ls = "--",
+         label = "Model Draw")
+    plt.plot(modelx , 1 - model_pw - model_pd , color = "black", ls = "--",
+        label = "Model Black Win")
     plt.axhline(0.5 , color = "black" , ls = "--")
     plt.axvline(0 , color = "black" , ls = "--")
     plt.legend()
     plt.show()
     
+    return res.x
+
 pgndata = None
 for i in os.listdir("data/"):
 
@@ -256,6 +322,6 @@ pgndata["BlackElo"] = np.array(pgndata["BlackElo"]).astype(np.int16)
 memory_check(pgndata)
 print ("Hello, would you like to play a game?")
 
-fit_probabilities(pgndata)
+modelx = fit_probabilities(pgndata)
 
 np.save("data/test.npy" , pgndata)
