@@ -20,11 +20,10 @@ this will be the starting point for other methods (see fortran code).
 
 Link to data source : https://database.lichess.org/
 
-The test data included in the repository is from 2013 - January. This
-particular set was chosen for the small file size, and it is a
-reasonable starting point. For more accurate results, you could include
-a larger number of games by adding additional pgn files to the
-data directory.
+The test data included in the repository is from September 2014. This
+particular set was selected because it is small enough that the required
+data can be readily hosted on github, while it still has data from
+~1,000,000 games, enough to have good statistics.
 
 Written by Dr. Peter A. Craig (2025)
 '''
@@ -50,22 +49,24 @@ def parse_pgn(filename):
     ## Set up dictionary to store results
 
     data = {}
-    data["White"] = []
-    data["Black"] = []
+    #data["White"] = []
+    #data["Black"] = []
     data["Result"] = []
     data["WhiteElo"] = []
     data["BlackElo"] = []
-    data["Time Control"] = []
-    data["Event"] = []
-    data["Date"] = []
-    data["Time"] = []
+    data["Base Time"] = []
+    data["Increment"] = []
+    #data["Event"] = []
+    #data["Date"] = []
+    #data["Time"] = []
     
     ## Some variables to temporarily store header fields.
     white = None
     black = None
     whiteelo = None
     blackelo = None
-    tcontrol = None
+    btime = None
+    itime = None
     result = None
     event = None
     time = None
@@ -110,9 +111,12 @@ def parse_pgn(filename):
                 blackelo = float(field)
             except:
                 continue
-        elif "[TimeControl " in i:
-            tcontrol = field
+        elif "[TimeControl " in i and field != "-":
 
+            btime = int(field.split("+")[0])
+            itime = int(field.split("+")[1])
+
+        
         elif "[Event" in i:
             event = field
         
@@ -127,23 +131,29 @@ def parse_pgn(filename):
         elif i[0] == "1":
             
             if not (white is None or black is None or whiteelo is None
-                or blackelo is None or tcontrol is None or result is None or
-                time is None or date is None or event is None):
+                or blackelo is None or btime is None or result is None
+                or time is None or date is None or event is None
+                or itime is None):
                 
-                data["White"].append(white)
-                data["Black"].append(black)
                 data["WhiteElo"].append(whiteelo)
                 data["BlackElo"].append(blackelo)
-                data["Time Control"].append(tcontrol)
+                data["Base Time"].append(btime)
+                data["Increment"].append(itime)
                 data["Result"].append(result)
-                data["Date"].append(date)
-                data["Time"].append(time)
-                data["Event"].append(event)
+
+                ## TODO: Add back in when we have features that use this info
+
+                #data["White"].append(white)
+                #data["Black"].append(black)
+                #data["Date"].append(date)
+                #data["Time"].append(time)
+                #data["Event"].append(event)
             white = None
             black = None
             whiteelo = None
             blackelo = None
-            tcontrol = None
+            btime = None
+            itime = None
             result = None
             event = None
             time = None
@@ -284,12 +294,21 @@ def fit_probabilities(pgndata):
          label = "Model Draw")
     plt.plot(modelx , 1 - model_pw - model_pd , color = "black", ls = "--",
         label = "Model Black Win")
-    plt.axhline(0.5 , color = "black" , ls = "--")
-    plt.axvline(0 , color = "black" , ls = "--")
+    #plt.axhline(0.5 , color = "black" , ls = "--")
+    #plt.axvline(0 , color = "black" , ls = "--")
     plt.legend()
     plt.show()
     
     return res.x
+
+def memory_check(pgndata):
+    
+    '''
+    Quick function to check out our memory usage. This can be an issue
+    with the billions of games available
+    '''
+    for key in pgndata:
+        print (key , sys.getsizeof(np.array(pgndata[key])) / 1000000)
 
 pgndata = None
 for i in os.listdir("data/"):
@@ -303,21 +322,20 @@ for i in os.listdir("data/"):
             for key in pgndata.keys():
                 pgndata[key] += data[key]
 
-def memory_check(pgndata):
-    
-    '''
-    Quick function to check out our memory usage. This can be an issue
-    with the billions of games available
-    '''
-    for key in pgndata:
-        print (key , sys.getsizeof(np.array(pgndata[key])) / 1000000)
+
 ## Some tricks to reduce memory consumption. Many of our values can be
 ## represented fully using smaller objects than the standard.
 ## For reference, this reduces our file size by ~30%.
 
-pgndata["Result"] =( np.array(pgndata["Result"]) * 2).astype(np.int8)
-pgndata["WhiteElo"] = np.array(pgndata["WhiteElo"]).astype(np.int16)
-pgndata["BlackElo"] = np.array(pgndata["BlackElo"]).astype(np.int16)
+pgndata["Result"] =( np.array(pgndata["Result"]) * 2).astype(np.uint8)
+pgndata["WhiteElo"] = np.array(pgndata["WhiteElo"]).astype(np.uint16)
+pgndata["BlackElo"] = np.array(pgndata["BlackElo"]).astype(np.uint16)
+pgndata["Base Time"] = ( np.array(pgndata["Base Time"]) / 60).astype(np.uint8)
+pgndata["Increment"] = np.array(pgndata["Increment"]).astype(np.uint8)
+
+
+for bt in np.unique(pgndata["Base Time"]):
+    print (bt , len(np.where(pgndata["Base Time"] == bt)[0]))
 
 memory_check(pgndata)
 print ("Hello, would you like to play a game?")
