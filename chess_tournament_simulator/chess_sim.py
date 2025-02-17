@@ -35,6 +35,56 @@ import sys
 import scipy.optimize as opt ##One day, replace with my own module
 
 
+class Tournament:
+
+    '''
+    Class to simulate a chess tournament. Will take in a list of
+    players, and offers multiple pairing systems to simulate
+    varying kinds of tournaments
+    '''
+
+    def __init__(self , playerlist , game_model):
+
+        self.playerlist = playerlist
+        self.pf = game_model
+
+    def simulate_game(self,  white , black):
+
+        '''
+        Function to determine the result of a single game
+        white and black should be two player objects
+        model is a function that takes in the two ratings and will
+        return the probability of a win for white and the probability
+        of a draw
+        '''
+
+        pw , pd = self.pf(white.true_rating , black.true_rating)
+        random_res = np.random.random()
+
+        if random_res < pd:
+            result = 0.5
+
+        elif random_res < pw + pd:
+            result = 1.0
+
+        else:
+            result = 0.0
+
+        return result
+
+    def pair_doublerr(self):
+        '''
+        Function to generate pairings for a double round robin.
+        Takes in a random seed that will determine the order of the
+        pairings
+        '''
+
+        self.pairings = []
+        Nrounds = 2 * (len(self.playerlist) - 1)
+        print (Nrounds)
+        
+        return 0
+
 class Player:
 
     '''
@@ -48,6 +98,8 @@ class Player:
         self.public_rating = public_rating
         self.true_rating = true_rating
         self.name = name
+        self.score = 0
+        self.record = []
 
     def update_ratings(self , opponent_rating , result):
         '''
@@ -56,6 +108,12 @@ class Player:
         '''
         self.new_rating = -1 
 
+    def reset_score(self):
+        '''
+        Function to reset the player's tournament results
+        '''
+        self.score = 0
+        self.record = []
 
 
 def parse_pgn(filename):
@@ -222,6 +280,7 @@ def pmodel(r1 , r2 , k , x0 , draw_x0 , draw_sigma , draw_amp):
 
     return pw , pd
 
+
 def setup_eval_function(pgndata , bw = 25):
 
     '''
@@ -272,7 +331,7 @@ def setup_eval_function(pgndata , bw = 25):
 
     return f , used_bins , scores , N , draw_rate , win_rate
 
-def fit_probabilities(pgndata):
+def fit_probabilities(pgndata , show_plots = False):
     '''
     This function will fit a model for the probability of each result
     for a game given the ratings of white and black
@@ -310,23 +369,24 @@ def fit_probabilities(pgndata):
     model_pw = np.array(model_pw)
     model_pd = np.array(model_pd)
 
-    plt.scatter(diff_bins , scores)
-    plt.errorbar(diff_bins , scores , yerr = 1 / np.sqrt(N) , ls = 'none')
-    plt.show()
-    
-    plt.scatter(diff_bins , draw_rate , label = "Draw Rate")
-    plt.scatter(diff_bins , win_rate , color = "orange" , label = "White Wins")
-    plt.scatter(diff_bins , 1 - np.array(win_rate) - np.array(draw_rate) , color = "red" , label = "Black Wins")
-    plt.plot(modelx, model_pw, color = "black", ls = "--",
-        label = "Model White Win")
-    plt.plot(modelx, model_pd, color = "green", ls = "--",
-         label = "Model Draw")
-    plt.plot(modelx , 1 - model_pw - model_pd , color = "black", ls = "--",
-        label = "Model Black Win")
-    #plt.axhline(0.5 , color = "black" , ls = "--")
-    #plt.axvline(0 , color = "black" , ls = "--")
-    plt.legend()
-    plt.show()
+    if show_plots:
+        plt.scatter(diff_bins , scores)
+        plt.errorbar(diff_bins , scores , yerr = 1 / np.sqrt(N) , ls = 'none')
+        plt.show()
+        
+        plt.scatter(diff_bins , draw_rate , label = "Draw Rate")
+        plt.scatter(diff_bins , win_rate , color = "orange" , label = "White Wins")
+        plt.scatter(diff_bins , 1 - np.array(win_rate) - np.array(draw_rate) , color = "red" , label = "Black Wins")
+        plt.plot(modelx, model_pw, color = "black", ls = "--",
+            label = "Model White Win")
+        plt.plot(modelx, model_pd, color = "green", ls = "--",
+            label = "Model Draw")
+        plt.plot(modelx , 1 - model_pw - model_pd , color = "black", ls = "--",
+            label = "Model Black Win")
+        #plt.axhline(0.5 , color = "black" , ls = "--")
+        #plt.axvline(0 , color = "black" , ls = "--")
+        plt.legend()
+        plt.show()
     
     return res.x
 
@@ -366,6 +426,10 @@ print ("Hello, would you like to play a game?")
 
 modelx = fit_probabilities(pgndata)
 
+def game_model(r1 , r2):
+    return pmodel(r1, r2, modelx[0], modelx[1], modelx[2], modelx[3], modelx[4])
+
+
 players = []
 
 players.append(Player(2000 , 2000 , "expert"))
@@ -375,5 +439,32 @@ players.append(Player(1400 , 1400 , "C"))
 players.append(Player(1200 , 1200 , "D"))
 players.append(Player(1000 , 1000 , "E"))
 
+double_round_robin = Tournament(players , game_model)
 
+## Basic check of game simulation!
+
+results = []
+for i in range(1000):
+    res = double_round_robin.simulate_game(players[0] , players[0])
+    results.append(res)
+
+print ("Equal Ratings Result: " , np.mean(results))
+
+results = []
+for i in range(1000):
+    res = double_round_robin.simulate_game(players[0] , players[1])
+    results.append(res)
+
+print ("200 point favorite for white Ratings Result: " , np.mean(results))
+
+
+results = []
+for i in range(1000):
+    res = double_round_robin.simulate_game(players[1] , players[0])
+    results.append(res)
+
+print ("200 point favorite for black Ratings Result: " , np.mean(results))
+
+
+double_round_robin.pair_doublerr()
 np.save(save_name , pgndata)
