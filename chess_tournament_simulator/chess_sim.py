@@ -35,6 +35,29 @@ import sys
 import scipy.optimize as opt ##One day, replace with my own module
 
 
+class Player:
+
+    '''
+    class to keep track of information for a player. Intent is to keep
+    track of a public rating (used for pairings) and a true rating
+    (used for game result probabilities). Also intended to house code
+    to update player ratings mid-tournament based on results.
+    '''
+
+    def __init__(self , public_rating , true_rating , name):
+        self.public_rating = public_rating
+        self.true_rating = true_rating
+        self.name = name
+
+    def update_ratings(self , opponent_rating , result):
+        '''
+        Function to update player ratings
+        TODO : Write this function
+        '''
+        self.new_rating = -1 
+
+
+
 def parse_pgn(filename):
     '''
     Function to parse a pgn file and extract the useful information
@@ -220,9 +243,14 @@ def setup_eval_function(pgndata , bw = 25):
     N = []
     draw_rate = []
     win_rate = []
+    used_bins = []
     for bin in diff_bins:
         
         bin_ii = np.where( ( rdiff > bin - bw ) & (rdiff < bin + bw) )
+        if len(bin_ii[0]) == 0: ##Just to catch any empty bins
+            continue
+
+        used_bins.append(bin)
         
         score = np.mean(result[ii][bin_ii]) / 2.0
         draws = np.where(result[ii][bin_ii] == 1)
@@ -232,16 +260,17 @@ def setup_eval_function(pgndata , bw = 25):
         scores.append(score)
         N.append(len(bin_ii[0]))
 
+    used_bins = np.array(used_bins)
 
     def f(x):
         '''
         Function to evaluate the model for the given data
         '''
-        pw , pd = pmodel(diff_bins , 0 , x[0] , x[1] , x[2] , x[3] , x[4])
+        pw , pd = pmodel(used_bins , 0 , x[0] , x[1] , x[2] , x[3] , x[4])
 
         return np.sqrt( np.sum( (pw - win_rate) ** 2) + np.sum((pd - draw_rate) ** 2))
 
-    return f , diff_bins , scores , N , draw_rate , win_rate
+    return f , used_bins , scores , N , draw_rate , win_rate
 
 def fit_probabilities(pgndata):
     '''
@@ -310,36 +339,41 @@ def memory_check(pgndata):
     for key in pgndata:
         print (key , sys.getsizeof(np.array(pgndata[key])) / 1000000)
 
-pgndata = None
-for i in os.listdir("data/"):
 
-    if i[-4:] == ".pgn":
-        data = parse_pgn("data/" + i)
-        if pgndata is None:
-            pgndata = data
-            
-        else:
-            for key in pgndata.keys():
-                pgndata[key] += data[key]
+##First, read in data, either from a pgn file or from a numpy file of
+##pre-reduced data
+save_name = "data/09_2014_lichess.npy"
 
+if os.path.exists(save_name):
+    pgndata = np.load(save_name , allow_pickle = True).flat[0]
+    
+else:
+    pgndata = parse_pgn("data/lichess_db_standard_rated_2014-09.pgn")
 
-## Some tricks to reduce memory consumption. Many of our values can be
-## represented fully using smaller objects than the standard.
-## For reference, this reduces our file size by ~30%.
+    ## Some tricks to reduce memory consumption. Many of our values can be
+    ## represented fully using smaller objects than the standard.
+    ## For reference, this reduces our file size by ~30%.
 
-pgndata["Result"] =( np.array(pgndata["Result"]) * 2).astype(np.uint8)
-pgndata["WhiteElo"] = np.array(pgndata["WhiteElo"]).astype(np.uint16)
-pgndata["BlackElo"] = np.array(pgndata["BlackElo"]).astype(np.uint16)
-pgndata["Base Time"] = ( np.array(pgndata["Base Time"]) / 60).astype(np.uint8)
-pgndata["Increment"] = np.array(pgndata["Increment"]).astype(np.uint8)
+    pgndata["Result"] =( np.array(pgndata["Result"]) * 2).astype(np.int8)
+    pgndata["WhiteElo"] = np.array(pgndata["WhiteElo"]).astype(np.int16)
+    pgndata["BlackElo"] = np.array(pgndata["BlackElo"]).astype(np.int16)
+    pgndata["Base Time"] = (np.array(pgndata["Base Time"]) / 60).astype(np.uint8)
+    pgndata["Increment"] = np.array(pgndata["Increment"]).astype(np.uint8)
 
-
-for bt in np.unique(pgndata["Base Time"]):
-    print (bt , len(np.where(pgndata["Base Time"] == bt)[0]))
 
 memory_check(pgndata)
 print ("Hello, would you like to play a game?")
 
 modelx = fit_probabilities(pgndata)
 
-np.save("data/test.npy" , pgndata)
+players = []
+
+players.append(Player(2000 , 2000 , "expert"))
+players.append(Player(1800 , 1800 , "A"))
+players.append(Player(1600 , 1600 , "B"))
+players.append(Player(1400 , 1400 , "C"))
+players.append(Player(1200 , 1200 , "D"))
+players.append(Player(1000 , 1000 , "E"))
+
+
+np.save(save_name , pgndata)
