@@ -33,7 +33,7 @@ import matplotlib.pyplot as plt
 import os
 import sys
 import scipy.optimize as opt ##One day, replace with my own module
-
+from tabulate import tabulate
 
 class Tournament:
 
@@ -72,6 +72,58 @@ class Tournament:
 
         return result
 
+    def pair_round_robin(self):
+        
+        '''
+        Function to generate pairings for a round robin tournamnet
+        
+        '''
+        
+        Npl = len(self.playerlist)
+        self.pairings = {}
+        
+        ## We're going to assign a random order to the players to start.
+        ## This follows a circular pairing method. There are others
+        # available for choosing the order of games and the colors,
+        # but this is a simple method
+
+        if Npl % 2 != 0:
+            raise ValueError("Odd number of players not supported yet")
+        
+        #ii = np.random.choice(range(Npl) , Npl , replace = False)
+        ii = np.array(range(Npl)) + 1
+        positions = ii[1::]
+        row2 = int(Npl / 2 - 1)
+        
+        for round in range(Npl - 1):
+            self.pairings[round] = []
+            ## Handle the first player seperately. All other pairings
+            ## can then be pulled from player positions.
+            if round % 2 == 0:
+                self.pairings[round].append([ii[0] , positions[row2]])
+            else:
+                self.pairings[round].append([positions[row2] , ii[0]])
+            
+            pi = 0
+            while pi < row2:
+
+                if pi % 2 == 0:
+                    self.pairings[round].append([positions[pi] , positions[row2 + 1 + pi]])
+                else:
+                    self.pairings[round].append([positions[row2 + 1 + pi] , positions[pi]])
+                pi += 1
+            ## Update player positions
+            positions = np.roll(positions , 1)
+            
+        for round in self.pairings.keys():
+            for k in self.pairings[round]:
+                pn = 2
+                if pn in k:
+                    if k[0] == pn:
+                        print ("W vs " , k[1])
+                    else:
+                        print ("B vs " , k[0])
+        exit()
     def pair_doublerr(self):
         '''
         Function to generate pairings for a double round robin.
@@ -79,10 +131,24 @@ class Tournament:
         pairings
         '''
 
+        Npl = len(self.playerlist)
         self.pairings = []
-        Nrounds = 2 * (len(self.playerlist) - 1)
+        self.pair_round_robin()
+        Nrounds = 2 * (Npl - 1)
         print (Nrounds)
-        
+
+        round_pairs = []
+        for i in np.array(range(Nrounds)) + 1:
+            inds = np.array(range(Npl))
+
+            for k in range(len(inds)):
+                if k > Npl / 2:
+                    break
+                if i % 2 == 0:
+                    round_pairs.append( [inds[k] , inds[-(k + 1)]] )
+        print (round_pairs)
+            
+
         return 0
 
 class Player:
@@ -448,6 +514,31 @@ for i in range(1000):
     res = double_round_robin.simulate_game(players[0] , players[0])
     results.append(res)
 
+match = results[0:10]
+
+rows = []
+row1 = ["Expert 1"]
+row2 = ["Expert 2"]
+header = ["Player"]
+rn = 1
+for i in match:
+    row1.append(i)
+    row2.append(1.0 - i)
+    header.append(rn)
+    rn += 1
+
+header.append("Total")
+
+row1.append(sum(row1[1::]))
+row2.append(sum(row2[1::]))
+
+if row1[-1] > row2[-1]:
+
+    rows = [header , row1 , row2]
+
+else:
+    rows = [header , row2 , row1]
+print (tabulate(rows , tablefmt = "fancy_grid"))
 print ("Equal Ratings Result: " , np.mean(results))
 
 results = []
@@ -459,9 +550,11 @@ print ("200 point favorite for white Ratings Result: " , np.mean(results))
 
 
 results = []
-for i in range(1000):
+for i in range(10):
     res = double_round_robin.simulate_game(players[1] , players[0])
     results.append(res)
+
+
 
 print ("200 point favorite for black Ratings Result: " , np.mean(results))
 
