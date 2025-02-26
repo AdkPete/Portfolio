@@ -163,8 +163,6 @@ class Player:
     def __init__(self , public_rating , true_rating , name):
         self.public_rating = public_rating
         self.true_rating = true_rating
-        self.name = name
-        self.score = 0
         self.record = []
 
     def update_ratings(self , opponent_rating , result):
@@ -178,7 +176,7 @@ class Player:
         '''
         Function to reset the player's tournament results
         '''
-        self.score = 0
+        
         self.record = []
 
 
@@ -466,98 +464,99 @@ def memory_check(pgndata):
         print (key , sys.getsizeof(np.array(pgndata[key])) / 1000000)
 
 
-##First, read in data, either from a pgn file or from a numpy file of
-##pre-reduced data
-save_name = "data/09_2014_lichess.npy"
+if __name__ == "__main__":
+    ##First, read in data, either from a pgn file or from a numpy file of
+    ##pre-reduced data
+    save_name = "data/09_2014_lichess.npy"
 
-if os.path.exists(save_name):
-    pgndata = np.load(save_name , allow_pickle = True).flat[0]
-    
-else:
-    pgndata = parse_pgn("data/lichess_db_standard_rated_2014-09.pgn")
+    if os.path.exists(save_name):
+        pgndata = np.load(save_name , allow_pickle = True).flat[0]
+        
+    else:
+        pgndata = parse_pgn("data/lichess_db_standard_rated_2014-09.pgn")
 
-    ## Some tricks to reduce memory consumption. Many of our values can be
-    ## represented fully using smaller objects than the standard.
-    ## For reference, this reduces our file size by ~30%.
+        ## Some tricks to reduce memory consumption. Many of our values can be
+        ## represented fully using smaller objects than the standard.
+        ## For reference, this reduces our file size by ~30%.
 
-    pgndata["Result"] =( np.array(pgndata["Result"]) * 2).astype(np.int8)
-    pgndata["WhiteElo"] = np.array(pgndata["WhiteElo"]).astype(np.int16)
-    pgndata["BlackElo"] = np.array(pgndata["BlackElo"]).astype(np.int16)
-    pgndata["Base Time"] = (np.array(pgndata["Base Time"]) / 60).astype(np.uint8)
-    pgndata["Increment"] = np.array(pgndata["Increment"]).astype(np.uint8)
-
-
-memory_check(pgndata)
-print ("Hello, would you like to play a game?")
-
-modelx = fit_probabilities(pgndata)
-
-def game_model(r1 , r2):
-    return pmodel(r1, r2, modelx[0], modelx[1], modelx[2], modelx[3], modelx[4])
+        pgndata["Result"] =( np.array(pgndata["Result"]) * 2).astype(np.int8)
+        pgndata["WhiteElo"] = np.array(pgndata["WhiteElo"]).astype(np.int16)
+        pgndata["BlackElo"] = np.array(pgndata["BlackElo"]).astype(np.int16)
+        pgndata["Base Time"] = (np.array(pgndata["Base Time"]) / 60).astype(np.uint8)
+        pgndata["Increment"] = np.array(pgndata["Increment"]).astype(np.uint8)
 
 
-players = []
+    memory_check(pgndata)
+    print ("Hello, would you like to play a game?")
 
-players.append(Player(2000 , 2000 , "expert"))
-players.append(Player(1800 , 1800 , "A"))
-players.append(Player(1600 , 1600 , "B"))
-players.append(Player(1400 , 1400 , "C"))
-players.append(Player(1200 , 1200 , "D"))
-players.append(Player(1000 , 1000 , "E"))
+    modelx = fit_probabilities(pgndata)
 
-double_round_robin = Tournament(players , game_model)
-
-## Basic check of game simulation!
-
-results = []
-for i in range(1000):
-    res = double_round_robin.simulate_game(players[0] , players[0])
-    results.append(res)
-
-match = results[0:10]
-
-rows = []
-row1 = ["Expert 1"]
-row2 = ["Expert 2"]
-header = ["Player"]
-rn = 1
-for i in match:
-    row1.append(i)
-    row2.append(1.0 - i)
-    header.append(rn)
-    rn += 1
-
-header.append("Total")
-
-row1.append(sum(row1[1::]))
-row2.append(sum(row2[1::]))
-
-if row1[-1] > row2[-1]:
-
-    rows = [header , row1 , row2]
-
-else:
-    rows = [header , row2 , row1]
-print (tabulate(rows , tablefmt = "fancy_grid"))
-print ("Equal Ratings Result: " , np.mean(results))
-
-results = []
-for i in range(1000):
-    res = double_round_robin.simulate_game(players[0] , players[1])
-    results.append(res)
-
-print ("200 point favorite for white Ratings Result: " , np.mean(results))
+    def game_model(r1 , r2):
+        return pmodel(r1, r2, modelx[0], modelx[1], modelx[2], modelx[3], modelx[4])
 
 
-results = []
-for i in range(10):
-    res = double_round_robin.simulate_game(players[1] , players[0])
-    results.append(res)
+    players = []
+
+    players.append(Player(2000 , 2000 , "expert"))
+    players.append(Player(1800 , 1800 , "A"))
+    players.append(Player(1600 , 1600 , "B"))
+    players.append(Player(1400 , 1400 , "C"))
+    players.append(Player(1200 , 1200 , "D"))
+    players.append(Player(1000 , 1000 , "E"))
+
+    double_round_robin = Tournament(players , game_model)
+
+    ## Basic check of game simulation!
+
+    results = []
+    for i in range(1000):
+        res = double_round_robin.simulate_game(players[0] , players[0])
+        results.append(res)
+
+    match = results[0:10]
+
+    rows = []
+    row1 = ["Expert 1"]
+    row2 = ["Expert 2"]
+    header = ["Player"]
+    rn = 1
+    for i in match:
+        row1.append(i)
+        row2.append(1.0 - i)
+        header.append(rn)
+        rn += 1
+
+    header.append("Total")
+
+    row1.append(sum(row1[1::]))
+    row2.append(sum(row2[1::]))
+
+    if row1[-1] > row2[-1]:
+
+        rows = [header , row1 , row2]
+
+    else:
+        rows = [header , row2 , row1]
+    print (tabulate(rows , tablefmt = "fancy_grid"))
+    print ("Equal Ratings Result: " , np.mean(results))
+
+    results = []
+    for i in range(1000):
+        res = double_round_robin.simulate_game(players[0] , players[1])
+        results.append(res)
+
+    print ("200 point favorite for white Ratings Result: " , np.mean(results))
+
+
+    results = []
+    for i in range(10):
+        res = double_round_robin.simulate_game(players[1] , players[0])
+        results.append(res)
 
 
 
-print ("200 point favorite for black Ratings Result: " , np.mean(results))
+    print ("200 point favorite for black Ratings Result: " , np.mean(results))
 
 
-double_round_robin.pair_doublerr()
-np.save(save_name , pgndata)
+    double_round_robin.pair_doublerr()
+    np.save(save_name , pgndata)
