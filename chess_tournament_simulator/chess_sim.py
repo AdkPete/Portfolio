@@ -47,7 +47,7 @@ class Tournament:
 
         self.playerlist = playerlist
         self.pf = game_model
-
+        self.current_round = 0
     def simulate_game(self,  white , black):
 
         '''
@@ -81,7 +81,7 @@ class Tournament:
         
         Npl = len(self.playerlist)
         self.pairings = {}
-        
+        self.Nrounds = Npl - 1
         ## We're going to assign a random order to the players to start.
         ## This follows a circular pairing method. There are others
         # available for choosing the order of games and the colors,
@@ -90,40 +90,47 @@ class Tournament:
         if Npl % 2 != 0:
             raise ValueError("Odd number of players not supported yet")
         
-        #ii = np.random.choice(range(Npl) , Npl , replace = False)
-        ii = np.array(range(Npl)) + 1
+        ii = np.random.choice(range(Npl) , Npl , replace = False)
+        #ii = np.array(range(Npl)) + 1
         positions = ii[1::]
-        row2 = int(Npl / 2 - 1)
-        
-        for round in range(Npl - 1):
+        row2 = int(Npl / 2) -1
+        positions[row2 ::] = positions[row2::][::-1]
+
+        for round in range(self.Nrounds):
             self.pairings[round] = []
             ## Handle the first player seperately. All other pairings
             ## can then be pulled from player positions.
+            p1 = self.playerlist[ii[0]]
+            p2 = self.playerlist[positions[-1]]
             if round % 2 == 0:
-                self.pairings[round].append([ii[0] , positions[row2]])
+
+                self.pairings[round].append([p1,p2])
             else:
-                self.pairings[round].append([positions[row2] , ii[0]])
+                self.pairings[round].append([p2,p1])
             
             pi = 0
             while pi < row2:
-
+                p1 = self.playerlist[positions[pi]]
+                p2 = self.playerlist[positions[-1 * pi - 2]]
                 if pi % 2 == 0:
-                    self.pairings[round].append([positions[pi] , positions[row2 + 1 + pi]])
+                    self.pairings[round].append([p1 , p2])
                 else:
-                    self.pairings[round].append([positions[row2 + 1 + pi] , positions[pi]])
+                    self.pairings[round].append([p2 , p1])
                 pi += 1
             ## Update player positions
             positions = np.roll(positions , 1)
             
+        return 0
         for round in self.pairings.keys():
             for k in self.pairings[round]:
-                pn = 2
-                if pn in k:
-                    if k[0] == pn:
-                        print ("W vs " , k[1])
+                
+                player = self.playerlist[5]
+                if player in k:
+                    if k[0] == player:
+                        print ("W vs " , k[1].name)
                     else:
-                        print ("B vs " , k[0])
-        exit()
+                        print ("B vs " , k[0].name)
+        
     def pair_doublerr(self):
         '''
         Function to generate pairings for a double round robin.
@@ -150,7 +157,103 @@ class Tournament:
             
 
         return 0
+    
+    def simulate_round(self):
+        '''
+        Simulate results for a single round of a tournament
+        '''
+        
+        for i in self.pairings[self.current_round]:
+            result = self.simulate_game(i[0] , i[1])
+            i[0].record.append(result)
+            i[1].record.append(1.0 - result)
+        self.current_round += 1
+        
+    def simulate_tournament(self):
+        
+        '''
+        Simulate the entire tournament
+        '''
+        while self.current_round < self.Nrounds:
+            self.simulate_round()
+        
+    def crosstable(self):
+        '''
+        Funcion to nicely display the tournament crosstable
+        '''
+        self.playerlist.sort()
+        lname = 0
+        for i in self.playerlist:
+            if len(i.name) > lname:
+                lname = len(i.name)
+        lname += 1
+        
+        print ("\n")
+        
+        print ("-" * lname + "|" + self.Nrounds* ( ( "-" * 5 ) + "|" ) )
+        for i in self.playerlist:
+            ind = self.playerlist.index(i)
+            line0 = str(ind + 1) + " " * (lname - len(str(ind + 1))) + "|"
+            line0 += + self.Nrounds* ( ( " " * 5 ) + "|" ) 
+            print (line0)
+            line1 = i.name + " " * (lname - len(i.name) ) + "|"
+            
 
+            line2 = str(i.public_rating) + (" " * (lname - 4)) + "|"
+            
+            for round in self.pairings.keys():
+                
+                for game in self.pairings[round]:
+                    if i == game[0]:
+                        
+                        pn = self.playerlist.index(game[1]) + 1
+                        
+                        
+                        if len(i.record) < round + 1:
+                            score = ""
+                        else:
+                            
+                            score = np.sum(i.record[0:round + 1])
+                        
+                        
+                        line2 += str(score) + " " * (5 - len(str(score))) + "|"
+                        l1 =  "W{}".format(pn)
+                        l1 += " " * (5 - len(l1)) + "|"
+                        line1 += l1
+                        
+                    elif i == game[1]:
+                        pn = self.playerlist.index(game[0]) + 1
+                        
+                        
+                        if len(i.record) < round + 1:
+                            score = ""
+                        else:
+                            
+                            score = np.sum(i.record[0:round + 1])
+                        
+                        line2 += str(score) + " " * (5 - len(str(score))) + "|"
+                        l1 =  "B{}".format(pn)
+                        l1 += " " * (5 - len(l1)) + "|"
+                        line1 += l1
+            print (line1)
+            print (line2)
+            row = ""
+            for i in range(len(line1)):
+                if line1[i] == "|":
+                    row += "|"
+                else:
+                    row += "-"
+            print (row)
+    
+    def reset(self):
+        '''
+        Function to reset the tournament
+        '''
+        self.current_round = 0
+        for i in self.playerlist:
+            i.reset_score()
+        self.pairings = {}
+        
 class Player:
 
     '''
@@ -164,7 +267,31 @@ class Player:
         self.public_rating = public_rating
         self.true_rating = true_rating
         self.record = []
+        self.name = name
 
+    def __eq__(self,other):
+        
+        ''' 
+        Players are equal if they have the same score and public rating
+        '''
+        if (np.sum(self.record) == np.sum(other.record) and
+             self.public_rating == other.public_rating):
+            return True
+        return False
+    
+    def __gt__(self , other):
+        '''
+        PLayers are ranked by score. If that fails, we rank by rating
+        '''
+        if np.sum(self.record) < np.sum(other.record):
+            return True
+        elif (np.sum(self.record) == np.sum(other.record) and 
+              self.public_rating < other.public_rating):
+            return True
+            
+        return False
+    
+    
     def update_ratings(self , opponent_rating , result):
         '''
         Function to update player ratings
@@ -179,7 +306,8 @@ class Player:
         
         self.record = []
 
-
+        
+        
 def parse_pgn(filename):
     '''
     Function to parse a pgn file and extract the useful information
@@ -307,6 +435,7 @@ def parse_pgn(filename):
     ## Close file
     f.close()
     
+
     return data
 
 def pmodel(r1 , r2 , k , x0 , draw_x0 , draw_sigma , draw_amp):
@@ -557,6 +686,32 @@ if __name__ == "__main__":
 
     print ("200 point favorite for black Ratings Result: " , np.mean(results))
 
-
-    double_round_robin.pair_doublerr()
+    
+    double_round_robin.pair_round_robin()
+    double_round_robin.crosstable()
+    double_round_robin.simulate_round()
+    double_round_robin.crosstable()
+    double_round_robin.simulate_tournament()
+    double_round_robin.crosstable()
+    
+    double_round_robin.reset()
+    double_round_robin.pair_round_robin()
+    double_round_robin.crosstable()
+    double_round_robin.simulate_tournament()
+    double_round_robin.crosstable()
+    double_round_robin.reset()
+    
+    escore = []
+    for i in range(1000000):
+        double_round_robin.pair_round_robin()
+        double_round_robin.simulate_tournament()
+        escore.append(np.sum(players[0].record))
+        double_round_robin.reset()
+        
+    print (np.min(escore) , np.mean(escore) , np.max(escore))
+    
+    ii = np.where(np.array(escore) < 2.5)
+    print (len(ii[0]) / len(escore))
+    plt.hist(escore , bins = 6)
+    plt.show()
     np.save(save_name , pgndata)
