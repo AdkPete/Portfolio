@@ -10,9 +10,11 @@ double precision :: a,b,a1,b1
 double precision :: fx , samp
 double precision :: mu , sig
 double precision, allocatable :: sample(:,:)
+double precision, allocatable :: xdata(:) , ydata(:)
+integer :: nlines
 
-
-Nsamp = 100000
+nlines = 0
+Nsamp = 1000
 Ndim = 1
 a = -50
 b = 50
@@ -23,7 +25,38 @@ Ntrial = 0
 mu = -3
 sig = 10.0
 
+open (1, file = 'input_data.dat', status = 'old')
+
+
+DO
+    READ (1,*, END = 7)
+    nlines = nlines + 1
+END DO
+
+7 close(1)
+
+allocate(xdata(nlines))
+allocate(ydata(nlines))
+
+
+open (1, file = 'input_data.dat', status = 'old')
+i = 1
+DO WHILE (i < nlines + 1)
+    READ (1,*) xdata(i), ydata(i)
+    print *,i
+    i = i + 1
+END DO
+close(1)
+
+print*, nlines
+
 allocate(sample(Ndim,Nsamp))
+
+i = 1
+do while (i < nlines + 1)
+    print *,xdata(i), ydata(i)
+    i = i + 1
+END DO
 
 print *, "Generating " , Nsamp ,  "samples across " , Ndim , "Dimensions"
 
@@ -46,7 +79,7 @@ print *, Ntrial
 
 ! Output Results to a file
 
-open(1, file = 'rsamp.dat', status = 'new')
+open(2, file = 'rsamp.dat', status = 'new')
 
 do i=1, Nsamp
     write(1,*) sample(1,i)

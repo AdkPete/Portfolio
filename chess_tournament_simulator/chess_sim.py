@@ -34,6 +34,7 @@ import os
 import sys
 import scipy.optimize as opt ##One day, replace with my own module
 from tabulate import tabulate
+from tqdm import tqdm
 
 class Tournament:
 
@@ -702,16 +703,12 @@ if __name__ == "__main__":
     double_round_robin.reset()
     
     escore = []
-    for i in range(1000000):
+    for i in tqdm(range(5000000)):
         double_round_robin.pair_round_robin()
         double_round_robin.simulate_tournament()
         escore.append(np.sum(players[0].record))
         double_round_robin.reset()
         
-    print (np.min(escore) , np.mean(escore) , np.max(escore))
-    
-    ii = np.where(np.array(escore) < 2.5)
-    print (len(ii[0]) / len(escore))
-    plt.hist(escore , bins = 6)
-    plt.show()
-    np.save(save_name , pgndata)
+    for i in np.unique(escore):
+        print (i , escore.count(i) * 100.0 / len(escore))
+        

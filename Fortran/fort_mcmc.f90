@@ -8,7 +8,7 @@ integer :: N_links
 integer :: burn
 integer i
 double precision, allocatable :: chains(:,:)
-double precision :: mean , sig , gauss , norm
+double precision :: mean , sig , gauss
 double precision, parameter ::  PI  = 4 * atan (1.0_8)
 
 mean = 0
@@ -37,7 +37,8 @@ end do
 print *, 'Initializing MCMC run with ', N_chains, 'chains and' , N_links, "links"
 print *, "Initial chain value" , chains(1,1)
 print *, gauss
-end program fort_mcmc
+
+contains
 
 double precision Function norm(mu, sigma, PI)
     double precision mu, sigma, U1, U2, PI
@@ -46,3 +47,5 @@ double precision Function norm(mu, sigma, PI)
     norm = sigma * sqrt(-2 * log(U1)) * cos(2 * PI * U2) + mu
     RETURN
     END
+
+end program fort_mcmc

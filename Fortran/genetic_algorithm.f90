@@ -7,6 +7,9 @@ integer :: popsize
 integer :: i
 integer :: AllocateStatus
 real, dimension(:), allocatable :: population
+integer :: Ndim
+
+Ndim = 2
 
 popsize = 100
 allocate(population(popsize) , STAT = AllocateStatus)
