@@ -35,6 +35,7 @@ import sys
 import scipy.optimize as opt ##One day, replace with my own module
 from tabulate import tabulate
 from tqdm import tqdm
+import corner
 
 class Tournament:
 
@@ -201,7 +202,7 @@ class Tournament:
             
 
             line2 = str(i.public_rating) + (" " * (lname - 4)) + "|"
-            
+            breakpoint()
             for round in self.pairings.keys():
                 
                 for game in self.pairings[round]:
@@ -628,7 +629,11 @@ if __name__ == "__main__":
     players = []
 
     players.append(Player(2000 , 2000 , "expert"))
+    players.append(Player(2000 , 2000 , "expert1"))
+    players.append(Player(2000 , 2000 , "expert2"))
     players.append(Player(1800 , 1800 , "A"))
+    players.append(Player(1900 , 2000 , "secret expert"))
+    players.append(Player(1500 , 2000 , "secret expert2"))
     players.append(Player(1600 , 1600 , "B"))
     players.append(Player(1400 , 1400 , "C"))
     players.append(Player(1200 , 1200 , "D"))
@@ -703,12 +708,15 @@ if __name__ == "__main__":
     double_round_robin.reset()
     
     escore = []
-    for i in tqdm(range(5000000)):
+    for i in tqdm(range(50000)):
         double_round_robin.pair_round_robin()
         double_round_robin.simulate_tournament()
-        escore.append(np.sum(players[0].record))
+        results = []
+        for player in players:
+            results.append(np.sum(player.record))
+        escore.append(results)
         double_round_robin.reset()
         
-    for i in np.unique(escore):
-        print (i , escore.count(i) * 100.0 / len(escore))
-        
+    
+    for i in range(len(players)):
+        print (players[i].name , " : " , np.mean(np.array(escore)[:,i]))

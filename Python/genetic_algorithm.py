@@ -9,6 +9,9 @@ def test_1(x):
     return x[0] ** 2
 
 def test_2(x):
+    '''
+    Trivial 2D test function, global minimum at (0,0)
+    '''
     return x[0] ** 2 + x[1] ** 2
 
 def rosenbrock(x):
@@ -71,6 +74,7 @@ def eval_pop(f , population):
     population : array
         Current population
     '''
+    
     fitness = []
     for sltn in population:
         fitness.append(f(sltn))
@@ -154,6 +158,7 @@ def reproduce(f , bounds , population, fitness , N_new , mutation_rate):
 
 
     new_fitness = eval_pop(f , new_sltns)
+    
     ii = np.arange(len(population) - N_new , len(population) , 1 )
     
     
@@ -163,7 +168,16 @@ def reproduce(f , bounds , population, fitness , N_new , mutation_rate):
     
     ii = np.argsort(fitness)
     
-    return population[ii] , fitness[ii]
+    return population[ii] , fitness[ii] , len(new_fitness)
+
+def rastrigin(x):
+    '''
+    Rastrigin function for testing optimizers
+    This function has many local minima, causing issues for hillclimbers
+    '''
+    A = 10
+    d = len(x)
+    return A * d + np.sum(x ** 2 - A * np.cos(2 * np.pi * x))
 
 def opt_w_random_samples(f , bounds , N):
     
@@ -190,7 +204,7 @@ def genetic_algorithm(f , bounds , popsize = 10 , Niter = 100, Gensize = 0.5 , m
     This is the main function that runs the actual
     genetic algorithm
     '''
-
+    Neval = 0
     new = int(Gensize * popsize)
     ##First step is to initialize a population of solutions
     population = uniform_random_sampler(popsize , bounds)
@@ -200,34 +214,103 @@ def genetic_algorithm(f , bounds , popsize = 10 , Niter = 100, Gensize = 0.5 , m
     ii = np.argsort(fitness)
     fitness = fitness[ii]
     population = population[ii]
+    print (f"Best f(x) in initial population:", fitness[0])
+    print (f"Best x in initial population:" , population[0])
     
+    logfname = "gen_alg_log.txt"
+    logf = open(logfname, "w")
+    logf.close()
     ##Iterate Niter times, generating new populations
     for i in range(Niter):
-        population , fitness = reproduce(f,bounds,population,fitness,new , mutation_rate)
+        population , fitness , nfeval = reproduce(f,bounds,population,fitness,new , mutation_rate)
+        Neval += nfeval
+        
+        print (f"Best f(x) in iteration {i}:", fitness[0])
+        print (f"Best x in iteration {i}:" , population[0])
+        log_output = f"Best f(x) in iteration {i}: {fitness[0]}\n"
+        log_output += f"Best x in iteration {i}: {population[0]}\n"
+        logf = open(logfname, "a")
+        logf.write(log_output)
+        logf.close()
     
-    print ("Best f(x) :", fitness[0])
+    print ("\n\nBest f(x) :", fitness[0])
     print ("Best x:" , population[0])
-    return population[0] , fitness[0]
+    log_output = f"\n\nBest f(x) : {fitness[0]}\n"
+    log_output += f"Best x: {population[0]}\n"
+
+    logf = open(logfname, "a")
+    logf.write(log_output)
+    logf.close()
     
+    return population[0] , fitness[0] , Neval
     
 if __name__ == "__main__":
-    #np.random.seed(150)
-    
-    ##Random search, with 10,000 function evals
-    print ("Random Search")
-    x2 , f2 = opt_w_random_samples(test_2 , [(-10,10),(-10,10)] , 10000)
-    
-    print ("Genetic Algorithm")
-    ##Genetic algorithm, with popsize + popsize/2 * Niter evaluations
-    xg , fg = genetic_algorithm(test_2 , [(-10,10),(-10,10)] , popsize = 50 , Niter = 20 , mutation_rate = .5)  
-    
+
     print ("Now we test on a harder function")
     print ("True solution is at (0,0)")
     
     print ("Genetic Algorithm w/ <2000 Function evals")
-    xg , fg = genetic_algorithm(ackley , [(-30,30),(-30,30)] , popsize = 24 , Niter = 150 , mutation_rate = .1)
+    xg , fg , Neval= genetic_algorithm(ackley , [(-30,30),(-30,30)] , popsize = 24 , Niter = 100 , mutation_rate = .1)
+    print (xg , fg, Neval)
+    
+    print ("Scipy's Differential Evolution optimizer")
+    x0 = np.random.uniform(-30,30,2)
+    res = opt.differential_evolution(ackley , [(-30,30),(-30,30)] , maxiter = 50 , popsize = 24 , tol = 1e-6 , init = 'random' , x0 = x0)
+    print (res.x , res.fun , res.nfev)
+    
+    print ("Random sampling")
+    xr , fr = opt_w_random_samples(ackley , [(-30,30),(-30,30)] , 600)
+    print (xr , fr)
+    
+    print ("\n\n")
+    print ("Now we test on a rosenbrock function")
+    print ("Genetic Algorithm w/ <2000 Function evals")
+    xg , fg , Neval= genetic_algorithm(rosenbrock , [(-30,30),(-30,30)] , popsize = 150 , Niter = 30 , mutation_rate = .01)
+    print (xg , fg, Neval)
+    
+    print ("Scipy's Differential Evolution optimizer")
+    x0 = np.random.uniform(-30,30,2)
+    res = opt.differential_evolution(rosenbrock , [(-30,30),(-30,30)] , maxiter = 50 , popsize = 24 , tol = 1e-6 , init = 'random' , x0 = x0)
+    print (res.x , res.fun , res.nfev)
+    
+    print ("Random sampling")
+    xr , fr = opt_w_random_samples(rosenbrock , [(-30,30),(-30,30)] , 600)
+    print (xr , fr)
     
 
-    res = opt.minimize(ackley , x0 = [-15,0])
-    print ("Scipy Hill Climber results")
-    print (res)
+    print ("\n\n")
+    print ("High-dimensionality test")
+    
+    print ("Genetic Algorithm w/ <2000 Function evals")
+    xg , fg , Neval= genetic_algorithm(ackley , [(-30,30),(-30,30),(-30,30),(-30,30),(-30,30)] , popsize = 100 , Niter = 300 , mutation_rate = .1)
+    print (fg, Neval)
+    
+    print ("Scipy's Differential Evolution optimizer")
+    x0 = np.random.uniform(-30,30,5)
+    res = opt.differential_evolution(ackley , [(-30,30),(-30,30),(-30,30),(-30,30),(-30,30)] , maxiter = 50 , popsize = 50 , tol = 1e-7 , init = 'random' , x0 = x0)
+    print (res.fun , res.nfev)
+    
+    print ("Scipy minimize")
+    x0 = np.random.uniform(-30,30,5)
+    res = opt.basinhopping(ackley , x0 , niter=100)
+    print (res.fun , res.nfev)
+    if fg < res.fun:
+        print ("Genetic Algorithm found a better solution than Scipy's DE")
+        
+
+    print ("\n\n")
+    print ("Now we test on a Rastrigin function")
+    print ("Genetic Algorithm w/ <2000 Function evals")
+    xg , fg , Neval= genetic_algorithm(rastrigin , [(-30,30),(-30,30),(-30,30),(-30,30),(-30,30)] , popsize = 500 , Niter = 1000 , mutation_rate = .1)
+    print (fg, Neval)
+    print ("Scipy's Differential Evolution optimizer")
+    x0 = np.random.uniform(-30,-30,5)
+    res = opt.differential_evolution(rastrigin , [(-30,30),(-30,30),(-30,30),(-30,30),(-30,30)] , maxiter = 50 , popsize = 50 , tol = 1e-7 , init = 'random' , x0 = x0)
+    print (res.fun , res.nfev)
+    if fg < res.fun:
+        print ("Genetic Algorithm found a better solution than Scipy's DE")
+    
+    print ("Scipy minimize")
+    x0 = np.random.uniform(-30,30,5)
+    res = opt.basinhopping(rastrigin , x0 , niter=100)
+    print (res.fun , res.nfev)

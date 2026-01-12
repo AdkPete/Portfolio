@@ -88,10 +88,20 @@ class NBody:
                 self.ay.append(ay * aunit)
                 self.az.append(az * aunit)
 
-    def leap_frog(self , dt):
-        xi = self.x + self.vx * dt + 0.5 * self.ax * dt ** 2
-        yi = self.y = self.vy * dt * 0.5 * self.ay * dt ** 2
-
+    def leap_frog(self , dt): 
+        xi = self.x[-1] + self.vx[-1] * dt + 0.5 * self.ax[-1] * dt ** 2
+        yi = self.y[-1] + self.vy[-1] * dt * 0.5 * self.ay[-1] * dt ** 2
+        zi = self.z[-1] + self.vz[-1] * dt * 0.5 * self.az[-1] * dt ** 2
+        
+        
+        
+    def run_sim(self , dt , tstart , tend):
+        t = tstart
+        
+        while t < tend:
+            
+            self.compute_accelerations(use_tree=False)
+            self.leap_frog(dt)
 if __name__ == "__main__":
     sim = NBody(100 , dunit = u.kpc , vunit = u.km / u.s , munit = u.Msun , tunit = u.Gyr, aunit = u.km / (u.s * u.Gyr))
     x = np.linspace(0 , 10 , 100)
